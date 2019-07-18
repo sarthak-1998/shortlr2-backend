@@ -1,11 +1,11 @@
 import debug from 'debug'
 import passport from 'passport'
+import AuthTokenStrategy from 'passport-auth-token'
 import { OneauthProfile, Strategy as OneauthStrategy } from 'passport-oneauth'
-import * as path from 'path'
 import Raven from 'raven'
 import config = require('../../config.js')
 import { findCreateFindUser, findUserById } from '../controllers/users'
-import { UserAttributes, UserRole } from '../db'
+import { AuthTokens, UserAttributes, UserRole, Users } from '../db'
 
 const log = debug('shortlr:auth:oneauth')
 
@@ -25,6 +25,30 @@ passport.deserializeUser((userId: number, done) => {
 })
 
 passport.use(
+  'authtoken',
+  new AuthTokenStrategy(
+    { headerFields: ['x-authorization-token'] },
+    async (token, done) => {
+      try {
+        const authToken = await AuthTokens.findOne({
+          where: {
+            token,
+          },
+        })
+        if (authToken) {
+          const user = await Users.findById(authToken.userId)
+          return done(null, user)
+        }
+        done(null, false)
+      } catch (err) {
+        Raven.captureException(err)
+        done(err)
+      }
+    },
+  ),
+)
+
+passport.use(
   new OneauthStrategy(
     {
       authorizationURL: 'https://account.codingblocks.com/oauth/authorize',
@@ -36,11 +60,17 @@ passport.use(
     },
     async (accessToken, refreshToken, profile: OneauthProfile, done) => {
       try {
-        const user = await findCreateFindUser({
+        const opts = {
           id: Number(profile.id),
           username: profile.username,
           role: (profile.role || 'user') as UserRole,
+          email: profile.verifiedemail,
           name: profile.name,
+        }
+        const user = await findCreateFindUser(opts)
+        await user.update({
+          ...opts,
+          role: user.role || 'user',
         })
         return done(null, user)
       } catch (e) {
