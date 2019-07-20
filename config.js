@@ -12,7 +12,7 @@ const config = {
   DB: {
     HOST: process.env.HOST || secrets.DB.HOST,
     DATABASE: process.env.DATABASE || secrets.DB.NAME,
-    USERNAME: process.env.USERNAME || secrets.DB.USERNAME,
+    USERNAME: process.env.DBUSER || secrets.DB.USERNAME,
     PASSWORD: process.env.PASSWORD || secrets.DB.PASSWORD,
     HOST: secrets.DB.HOST,
     SYNC_ALTER: process.env.DB_SYNC_ALTER || false,
